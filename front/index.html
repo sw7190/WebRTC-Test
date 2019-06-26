@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+    <style>
+        video {
+            width: 1000px;
+            height: 500px;
+            background-color: black;
+        }
+    </style>
+</head>
+<body>
+    <video id="localVideo" autoplay></video>
+    <button onclick="startEvent()">시작하기!</button>
+    <button onclick="stopEvent()">끝내기!</button>
+</body>
+<script>
+    class Connection {
+        constructor() {
+            this.config = {
+                'iceServers': [
+                    { url: 'stun:stun2.l.google.com:19302' }, // stun
+                    {
+                        url: 'turn:numb.viagenie.ca',
+                        credential: 'muazkh',
+                        username: 'webrtc@live.com'
+                    }, // turn
+                ]
+            }
+            this.connect();
+        }
+
+        connect() {
+            try {
+                this.conn = new RTCPeerConnection(this.config);
+                this.conn.onicecandidate = this.candidate();
+                this.conn.onaddstream = this.addStream();
+                this.conn.onremovestream = this.removeStream();
+                console.log(this.conn);
+            } catch (err) {
+                console.log(err);
+            }
+        }
+
+        candidate() {
+
+        }
+
+        addStream() {
+
+        }
+
+        removeStream() {
+
+        }
+    }
+    class ScreenHandler {
+        constructor(videoElement) {
+            this.config = {
+                width: 1980,
+                height: 1080,
+                frameRate: 10, // 최대 프레임 
+            }
+            this.videoElement = videoElement;
+            this.stream = null;
+        }
+
+        async start() {
+            this.stream = await this.getStream(); 
+            this.videoElement.srcObject = this.stream;
+            console.log('start screen share');
+        }
+
+        stop() {
+            this.stream.getTracks().forEach(x => x.stop());
+            console.log('stop screen share');
+        }
+
+        getStream() {
+            if (navigator.mediaDevices.getDisplayMedia) {
+                return navigator.mediaDevices.getDisplayMedia(this.config);
+            }
+        }
+    }
+
+    const screenHandler = new ScreenHandler(document.getElementById('localVideo'));
+    const connect = new Connection();
+    const socket = new WebSocket("ws://localhost:8454")
+
+    const startEvent = () => {
+        let stream = screenHandler.start();
+    }
+
+    const stopEvent = () => {
+        connect.connect();
+        screenHandler.stop();
+    }
+    
+</script>
+</html>
