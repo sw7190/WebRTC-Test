@@ -17,88 +17,14 @@
     <video id="localVideo" autoplay></video>
     <button onclick="startEvent()">시작하기!</button>
     <button onclick="stopEvent()">끝내기!</button>
-</body>
-<script>
-    class Connection {
-        constructor() {
-            this.config = {
-                'iceServers': [
-                    { url: 'stun:stun2.l.google.com:19302' }, // stun
-                    {
-                        url: 'turn:numb.viagenie.ca',
-                        credential: 'muazkh',
-                        username: 'webrtc@live.com'
-                    }, // turn
-                ]
-            }
-            this.connect();
-        }
-
-        connect() {
-            try {
-                this.conn = new RTCPeerConnection(this.config);
-                this.conn.onicecandidate = this.candidate();
-                this.conn.onaddstream = this.addStream();
-                this.conn.onremovestream = this.removeStream();
-                console.log(this.conn);
-            } catch (err) {
-                console.log(err);
-            }
-        }
-
-        candidate() {
-
-        }
-
-        addStream() {
-
-        }
-
-        removeStream() {
-
-        }
-    }
-    class ScreenHandler {
-        constructor(videoElement) {
-            this.config = {
-                width: 1980,
-                height: 1080,
-                frameRate: 10, // 최대 프레임 
-            }
-            this.videoElement = videoElement;
-            this.stream = null;
-        }
-
-        async start() {
-            this.stream = await this.getStream(); 
-            this.videoElement.srcObject = this.stream;
-            console.log('start screen share');
-        }
-
-        stop() {
-            this.stream.getTracks().forEach(x => x.stop());
-            console.log('stop screen share');
-        }
-
-        getStream() {
-            if (navigator.mediaDevices.getDisplayMedia) {
-                return navigator.mediaDevices.getDisplayMedia(this.config);
-            }
-        }
-    }
-
-    const screenHandler = new ScreenHandler(document.getElementById('localVideo'));
-    const connect = new Connection();
-    const socket = new WebSocket("ws://localhost:8454")
-
-    const startEvent = () => {
-        let stream = screenHandler.start();
-    }
-
-    const stopEvent = () => {
-        connect.connect();
-        screenHandler.stop();
-    }
     
-</script>
+    <input type="text" id="key">
+    <button onclick="createConnEvent()">자신의 아이디 입력!</button>
+    <input type="text" id="key2">
+    <button onclick="joinConnEvent()">보고싶은 아이디 입력!</button>
+</body>
+<script src="./js/screen.js"></script>
+<script src="./js/socket.js"></script>
+<script src="./js/rtc-connect.js"></script>
+<script src="./main.js"></script>
 </html>

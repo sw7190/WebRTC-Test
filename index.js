@@ -1,19 +1,45 @@
 const express = require('express');
 const app = express();
 const server = require('http').createServer(app);
+const path = require('path');
 const port = 8454;
 
 const WebSocket = require('ws');
 const ws = new WebSocket.Server({ server });
 
-app.get('/', (req, res) => {
-    res.sendFile(__dirname + '/front/index.html');
-})
+const messageType = {
+    HELLO: "HELLO",
+    JOIN: "JOIN",
+    CREATE: "CREATE",
+    OFFER: "offer",
+    ANSWER: "answer",
+}
 
+app.get(/\/front\//, (req, res) => {
+    res.sendFile(path.join(__dirname, req.url));
+});
+ 
 ws.on('connection', (socket) => {
-    socket.send('Test Send');
-})
+    socket.on('message', (message) => {
+        let res = JSON.parse(message);
+        if (messageType.CREATE === res.type) {
+            socket.send(JSON.stringify({ type: messageType.CREATE, data: res.data }));
+        }
+        ws.clients.forEach((c) => {
+            if (c.readyState === WebSocket.OPEN) {
+                switch (res.type) {
+                    case messageType.OFFER:
+                        c.send(JSON.stringify({ type: messageType.OFFER, sdp: res.sdp }));
+                        break;
+                    case messageType.ANSWER:
+                        c.send(JSON.stringify({ type: messageType.ANSWER, sdp: res.sdp, data: res.data }));
+                        break;
+                }
+            }
+        })
+    })
+});
 
 server.listen(port, () => {
     console.log('server listening on port: ' + port);
-})
+});
