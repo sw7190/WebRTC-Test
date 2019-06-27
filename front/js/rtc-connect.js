@@ -111,12 +111,10 @@ class Connection {
                 if (!this.isInitiator && this.viewUser) {
                     this.createPeerConnection();
                     this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    console.log('-------------')
-                    console.log(this.conn);
                     this.conn.createAnswer()
                     .then((sdp) => this.socket.sendData(sdp))
                     .catch((err) => console.log('failed create answer err:' + err))
-                } 
+                }
 
                 break;
             case this.socket.messageType.ANSWER:
