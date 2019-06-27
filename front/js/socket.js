@@ -15,6 +15,7 @@ class SocketHandler {
             CREATE: "CREATE",
             OFFER: "offer",
             ANSWER: "answer",
+            CANDIDATE: 'CANDIDATE',
         }
     }
 

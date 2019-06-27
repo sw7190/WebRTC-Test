@@ -13,6 +13,7 @@ const messageType = {
     CREATE: "CREATE",
     OFFER: "offer",
     ANSWER: "answer",
+    CANDIDATE: 'CANDIDATE',
 }
 
 app.get(/\/front\//, (req, res) => {
@@ -22,6 +23,7 @@ app.get(/\/front\//, (req, res) => {
 ws.on('connection', (socket) => {
     socket.on('message', (message) => {
         let res = JSON.parse(message);
+        console.log(res);
         if (messageType.CREATE === res.type) {
             socket.send(JSON.stringify({ type: messageType.CREATE, data: res.data }));
         }
@@ -29,10 +31,17 @@ ws.on('connection', (socket) => {
             if (c.readyState === WebSocket.OPEN) {
                 switch (res.type) {
                     case messageType.OFFER:
-                        c.send(JSON.stringify({ type: messageType.OFFER, sdp: res.sdp }));
+                        c.send(JSON.stringify({ type: messageType.OFFER, sdp: res }));
                         break;
                     case messageType.ANSWER:
-                        c.send(JSON.stringify({ type: messageType.ANSWER, sdp: res.sdp, data: res.data }));
+                        c.send(JSON.stringify({ type: messageType.ANSWER, sdp: res }));
+                        break;
+                    case messageType.CANDIDATE:
+                        c.send(JSON.stringify({
+                            type: messageType.CANDIDATE,
+                            label: res.label,
+                            candidate: res.candidate,
+                        }));
                         break;
                 }
             }

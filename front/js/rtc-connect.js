@@ -41,19 +41,10 @@ class Connection {
     connect() {
         return new Promise((res, rej) => {
             console.log('connect peer', this.isStart)
-            if (!this.isStart) {
+            if (!this.isStart && this.screenHandler.getStream()) {
                 console.log('start connect');
-
-                try{
-                    this.conn = new RTCPeerConnection(this.config);
-                    this.conn.onicecandidate = this.candidate;
-                    this.conn.onaddstream = this.addStream;
-                    this.conn.onremovestream = this.removeStream;
-                    console.log('succecc create peer connect');
-                } catch(err) {
-                    console.log('failed create perr connect; err: '+ err)
-                }
-                
+                this.createPeerConnection();
+                this.conn.addStream(this.screenHandler.getStream());
                 this.isStart = true;
     
                 if (this.isInitiator) {
@@ -64,11 +55,30 @@ class Connection {
         }) 
     }
 
-    candidate(e) {
+    createPeerConnection() {
+        try{
+            this.conn = new RTCPeerConnection(this.config);
+            this.conn.onicecandidate = this.candidate;
+            this.conn.onaddstream = this.addStream;
+            this.conn.onremovestream = this.removeStream;
+            console.log('succecc create peer connect');
+        } catch(err) {
+            console.log('failed create perr connect; err: '+ err)
+        }
+    }
+
+    candidate = (e) => {
         console.log('candidate event');
-        console.log(this.conn);
-        if (!this.conn) return;
-        if (e.candidate) this.conn.addIceCandidate(e.candidate);
+        if (e.candidate) {
+            let data = {
+                type: this.socket.messageType.CANDIDATE,
+                label: e.candidate.sdpMLineIndex,
+                id: e.candidate.sdpMid,
+                candidate: e.candidate.candidate,
+            }
+            console.log(data);
+            this.socket.sendData(data)
+        }
     }
 
     addStream = (event) => {
@@ -87,7 +97,6 @@ class Connection {
             console.log('doCall()');
             this.conn.setLocalDescription(sdp);
             this.socket.sendData(sdp);
-            this.isStart = false;
         })
         .catch((err) => console.log('failed create offser err:' + err));
     }
@@ -105,26 +114,25 @@ class Connection {
             case this.socket.messageType.OFFER:
                 if (!this.isInitiator && this.viewUser) {
                     await this.connect();
-                    console.log(this.conn)
-                    this.conn.setRemoteDescription(data);
+                    this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp));
+                    console.log('-------------')
+                    console.log(this.conn);
                     this.conn.createAnswer()
-                    .then((sdp) => {
-                        this.conn.setLocalDescription(sdp);
-                        this.socket.sendData({
-                            type: this.socket.messageType.ANSWER,
-                            sdp: sdp,
-                            data: this.viewUser
-                        });
-                    })
+                    .then((sdp) => this.socket.sendData(sdp))
                     .catch((err) => console.log('failed create answer err:' + err))
                 } 
+
                 break;
             case this.socket.messageType.ANSWER:
-                console.log(this.key, parseInt(data.data, 10));
-                if (parseInt(data.data, 10) == this.key) {
-                    console.log('answer')
-                    this.conn.setRemoteDescription(data.sdp)
-                }
+                console.log(this.conn);
+                this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
+                break;
+            case this.socket.messageType.CANDIDATE:
+                const candidate = new RTCIceCandidate({
+                    sdpMLineIndex: data.label,
+                    candidate: data.candidate
+                });
+                this.conn.addIceCandidate(candidate);
                 break;
         }
     }
