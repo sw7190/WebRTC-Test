@@ -16,6 +16,8 @@ const messageType = {
     CANDIDATE: 'CANDIDATE',
 }
 
+let room = [];
+
 app.get(/\/front\//, (req, res) => {
     res.sendFile(path.join(__dirname, req.url));
 });
@@ -23,19 +25,41 @@ app.get(/\/front\//, (req, res) => {
 ws.on('connection', (socket) => {
     socket.on('message', (message) => {
         let res = JSON.parse(message);
+        let id;
         console.log(res);
-        if (messageType.CREATE === res.type) {
-            socket.send(JSON.stringify({ type: messageType.CREATE, data: res.data }));
+        switch (res.type) {
+            case messageType.CREATE:
+                id = parseInt(res.data);
+                room[id] = {
+                    isStart: false,
+                    sdp: null
+                };
+                socket.send(JSON.stringify({ type: messageType.CREATE, data: res.data }));
+                break;
+            case messageType.OFFER:
+                id = parseInt(res.data);
+                room[id] = {
+                    isStart: true,
+                    sdp: res.sdp
+                };
+                socket.send(JSON.stringify({ type: messageType.OFFER, data: 'success create offer' }));
+                break;
+            case messageType.JOIN:
+                let targetId = parseInt(res.data);
+                if (room[targetId]) {
+                    if (room[targetId].isStart) {
+                        socket.send(JSON.stringify({ type: messageType.JOIN, sdp: room[targetId].sdp, state: true }));
+                    } else {
+                        socket.send(JSON.stringify({ type: messageType.JOIN, sdp: null, state: false }));
+                    }
+                }
+                break;
+            
         }
+
         ws.clients.forEach((c) => {
             if (c.readyState === WebSocket.OPEN) {
                 switch (res.type) {
-                    case messageType.OFFER:
-                        c.send(JSON.stringify({ type: messageType.OFFER, sdp: res }));
-                        break;
-                    case messageType.ANSWER:
-                        c.send(JSON.stringify({ type: messageType.ANSWER, sdp: res }));
-                        break;
                     case messageType.CANDIDATE:
                         c.send(JSON.stringify({
                             type: messageType.CANDIDATE,
@@ -44,10 +68,15 @@ ws.on('connection', (socket) => {
                             id: res.id
                         }));
                         break;
+                    case messageType.ANSWER:
+                        socket.send(JSON.stringify({ type: messageType.ANSWER, sdp: res }));
+                        break;
                 }
             }
-        })
-    })
+        });
+
+        id = null;
+    });
 });
 
 server.listen(port, () => {

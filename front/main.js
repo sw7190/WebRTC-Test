@@ -15,6 +15,6 @@ const createConnEvent = () => {
 
 const joinConnEvent = () => {
     const key = document.getElementById('key2').value;
-    rtc.viewUser = key;
+    rtc.join(key);
 }
 

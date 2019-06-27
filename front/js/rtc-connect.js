@@ -13,22 +13,19 @@ class Connection {
         this.screenHandler = new ScreenHandler(document.getElementById('localVideo'));
         this.socket = new SocketHandler();
         this.socket.subscribe(this.onMessage);
-
-        this.conn = null;
-        this.isInitiator = false;
-        this.isStart = false;
         this.key = key;
-        this.viewUser = null;
+        this.targetId = null;
+
+        this.createPeerConnection();
     }
 
     async start() {
-        if (!this.isStart) {
-            await this.screenHandler.start();
-            
-            if (this.screenHandler.getStream()) {
-                this.socket.sendData({ type: this.socket.messageType.CREATE, data: this.key })
-                console.log('start screen share');
-            }
+        await this.screenHandler.start();
+        
+        if (this.screenHandler.getStream()) {
+            this.conn.addStream(this.screenHandler.getStream());
+            this.socket.sendData({ type: this.socket.messageType.CREATE, data: this.key })
+            console.log('start screen share');
         }
     }
 
@@ -36,19 +33,6 @@ class Connection {
         this.screenHandler.stop();
         this.isInitiator = false;
         console.log('stop screen share');
-    }
-
-    connect() {
-        console.log('connect peer', this.isStart)
-        if (!this.isStart && this.screenHandler.getStream()) {
-            console.log('start connect');
-            this.createPeerConnection();
-            this.conn.addStream(this.screenHandler.getStream());
-            this.isStart = true;
-            if (this.isInitiator) {
-                this.doCall();
-            }
-        }
     }
 
     createPeerConnection() {
@@ -66,14 +50,9 @@ class Connection {
     candidate = (e) => {
         console.log('candidate event');
         if (e.candidate) {
-            let data = {
-                type: this.socket.messageType.CANDIDATE,
-                label: e.candidate.sdpMLineIndex,
-                id: e.candidate.sdpMid,
-                candidate: e.candidate.candidate,
-            }
-            console.log(data);
-            this.socket.sendData(data)
+            console.log(e.candidate);
+            this.conn.addIceCandidate(e.candidate);
+            // this.socket.sendData(data)
         }
     }
 
@@ -87,12 +66,24 @@ class Connection {
 
     }
 
-    doCall() {
+    join(targetId) {
+        this.targetId = targetId; 
+        this.socket.sendData({
+            type: this.socket.messageType.JOIN,
+            data: targetId
+        });
+    }
+
+    createOffer() {
         this.conn.createOffer()
         .then((sdp) => {
-            console.log('doCall()');
+            console.log('createOffer()');
             this.conn.setLocalDescription(sdp);
-            this.socket.sendData(sdp);
+            this.socket.sendData({
+                type: sdp.type,
+                sdp: sdp,
+                data: this.key
+            });
         })
         .catch((err) => console.log('failed create offser err:' + err));
     }
@@ -104,36 +95,42 @@ class Connection {
                 if (data.data === this.key) {
                     console.log('initiator')
                     this.isInitiator = true;
-                    this.connect();
+                    this.createOffer();
                 }
                 break;
             case this.socket.messageType.OFFER:
-                if (!this.isInitiator && this.viewUser) {
-                    this.createPeerConnection();
+                console.log(data.data);
+                break;
+            case this.socket.messageType.JOIN:
+                if (data.state) {
+                    console.log('success join');
                     this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp));
                     this.conn.createAnswer()
-                    .then((sdp) => this.socket.sendData(sdp))
+                    .then((sdp) => this.socket.sendData({
+                        type: this.socket.messageType.ANSWER,
+                        sdp: sdp,
+                        targetId: this.targetId
+                    }))
                     .catch((err) => console.log('failed create answer err:' + err))
-                }
-
-                break;
-            case this.socket.messageType.ANSWER:
-                if (this.isInitiator)
-                    this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
-                else 
-                    this.conn.setLocalDescription(new RTCSessionDescription(data.sdp))
-                break;
-            case this.socket.messageType.CANDIDATE:
-                try{
-                    this.conn.addIceCandidate(new RTCIceCandidate({
-                        sdpMLineIndex: data.label,
-                        candidate: data.candidate,
-                        sdpMid: data.id
-                    }));
-                }catch(err) {
-                    console.log('failed add icecandidate; err: '+ err);
+                } else {
+                    console.log('failed join');
                 }
                 break;
+                case this.socket.messageType.ANSWER:
+                    if (this.targetId === res.data.data) this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
+                    else this.conn.setLocalDescription(new RTCSessionDescription(data.sdp))
+                break;
+            // case this.socket.messageType.CANDIDATE:
+            //     try{
+            //         this.conn.addIceCandidate(new RTCIceCandidate({
+            //             sdpMLineIndex: data.label,
+            //             candidate: data.candidate,
+            //             sdpMid: data.id
+            //         }));
+            //     }catch(err) {
+            //         console.log('failed add icecandidate; err: '+ err);
+            //     }
+            //     break;
         }
     }
 }
