@@ -41,6 +41,7 @@ ws.on('connection', (socket) => {
                             type: messageType.CANDIDATE,
                             label: res.label,
                             candidate: res.candidate,
+                            id: res.id
                         }));
                         break;
                 }

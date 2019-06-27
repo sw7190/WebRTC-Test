@@ -39,20 +39,16 @@ class Connection {
     }
 
     connect() {
-        return new Promise((res, rej) => {
-            console.log('connect peer', this.isStart)
-            if (!this.isStart && this.screenHandler.getStream()) {
-                console.log('start connect');
-                this.createPeerConnection();
-                this.conn.addStream(this.screenHandler.getStream());
-                this.isStart = true;
-    
-                if (this.isInitiator) {
-                    this.doCall();
-                }
-                res(true);
+        console.log('connect peer', this.isStart)
+        if (!this.isStart && this.screenHandler.getStream()) {
+            console.log('start connect');
+            this.createPeerConnection();
+            this.conn.addStream(this.screenHandler.getStream());
+            this.isStart = true;
+            if (this.isInitiator) {
+                this.doCall();
             }
-        }) 
+        }
     }
 
     createPeerConnection() {
@@ -101,19 +97,19 @@ class Connection {
         .catch((err) => console.log('failed create offser err:' + err));
     }
 
-    onMessage = async (data) => {
+    onMessage = (data) => {
         console.log(data);
         switch (data.type) {
             case this.socket.messageType.CREATE: 
                 if (data.data === this.key) {
                     console.log('initiator')
                     this.isInitiator = true;
-                    await this.connect();
+                    this.connect();
                 }
                 break;
             case this.socket.messageType.OFFER:
                 if (!this.isInitiator && this.viewUser) {
-                    await this.connect();
+                    this.createPeerConnection();
                     this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp));
                     console.log('-------------')
                     console.log(this.conn);
@@ -124,15 +120,21 @@ class Connection {
 
                 break;
             case this.socket.messageType.ANSWER:
-                console.log(this.conn);
-                this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
+                if (this.isInitiator)
+                    this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
+                else 
+                    this.conn.setLocalDescription(new RTCSessionDescription(data.sdp))
                 break;
             case this.socket.messageType.CANDIDATE:
-                const candidate = new RTCIceCandidate({
-                    sdpMLineIndex: data.label,
-                    candidate: data.candidate
-                });
-                this.conn.addIceCandidate(candidate);
+                try{
+                    this.conn.addIceCandidate(new RTCIceCandidate({
+                        sdpMLineIndex: data.label,
+                        candidate: data.candidate,
+                        sdpMid: data.id
+                    }));
+                }catch(err) {
+                    console.log('failed add icecandidate; err: '+ err);
+                }
                 break;
         }
     }
