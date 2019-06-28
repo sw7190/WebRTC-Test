@@ -50,9 +50,13 @@ class Connection {
     candidate = (e) => {
         console.log('candidate event');
         if (e.candidate) {
-            console.log(e.candidate);
-            this.conn.addIceCandidate(e.candidate);
-            // this.socket.sendData(data)
+            let data = {
+                type: this.socket.messageType.CANDIDATE,
+                data: this.key,
+                candidate: e.candidate
+            }
+            // this.conn.addIceCandidate(e.candidate);
+            this.socket.sendData(data)
         }
     }
 
@@ -105,32 +109,25 @@ class Connection {
                 if (data.state) {
                     console.log('success join');
                     this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp));
-                    this.conn.createAnswer()
-                    .then((sdp) => this.socket.sendData({
-                        type: this.socket.messageType.ANSWER,
-                        sdp: sdp,
-                        targetId: this.targetId
-                    }))
-                    .catch((err) => console.log('failed create answer err:' + err))
+                    this.conn.addIceCandidate(data.candidate);
+                    // this.conn.createAnswer()
+                    // .then((sdp) => this.socket.sendData({
+                    //     type: this.socket.messageType.ANSWER,
+                    //     sdp: sdp,
+                    //     targetId: this.targetId
+                    // }))
+                    // .catch((err) => console.log('failed create answer err:' + err))
                 } else {
                     console.log('failed join');
                 }
                 break;
                 case this.socket.messageType.ANSWER:
-                    if (this.targetId === res.data.data) this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
-                    else this.conn.setLocalDescription(new RTCSessionDescription(data.sdp))
+                    // if (this.targetId === data.data) this.conn.setRemoteDescription(new RTCSessionDescription(data.sdp))
+                    // else this.conn.setLocalDescription(new RTCSessionDescription(data.sdp))
                 break;
-            // case this.socket.messageType.CANDIDATE:
-            //     try{
-            //         this.conn.addIceCandidate(new RTCIceCandidate({
-            //             sdpMLineIndex: data.label,
-            //             candidate: data.candidate,
-            //             sdpMid: data.id
-            //         }));
-            //     }catch(err) {
-            //         console.log('failed add icecandidate; err: '+ err);
-            //     }
-            //     break;
+            case this.socket.messageType.CANDIDATE:
+                if (this.targetId === data.data || this.key === data.data) this.conn.addIceCandidate(data.candidate);
+                break;
         }
     }
 }
